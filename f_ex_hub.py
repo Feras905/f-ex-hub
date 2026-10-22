@@ -1,60 +1,185 @@
 import streamlit as st
 import datetime
+import os
+import pandas as pd
 
-st.set_page_config(page_title="مساعد المزايدة الذكي لشاحنات النقل", layout="centered")
-st.title("🚚 مساعد المزايدة الذكي لـ zipmend")
-st.write("ادخل بياناتك الحالية لحساب أفضل سعر للمزايدة ونسبة القبول المتوقعة.")
+# 1. إعدادات الصفحة الأساسية وتهيئة ملف السجل الآمن
+st.set_page_config(page_title="F EX Freight Hub", layout="centered")
+LOGBOOK_FILE = "f_ex_logbook.csv"
 
-st.sidebar.header("🛠️ إعدادات التكاليف الخاصة بك")
-monthly_rent = st.sidebar.number_input("إيجار الشاحنة الشهري (يورو):", value=1200)
-insurance_tax = st.sidebar.number_input("التأمين والضرائب شهرياً (يورو):", value=300)
-diesel_price = st.sidebar.number_input("سعر لتر الديزل الحالي (يورو):", value=1.70)
-consumption = st.sidebar.number_input("استهلاك الشاحنة (لتر لكل 100 كم):", value=10.0)
+def load_logbook():
+    if os.path.exists(LOGBOOK_FILE):
+        try:
+            return pd.read_csv(LOGBOOK_FILE)
+        except:
+            pass
+    return pd.DataFrame(columns=["Datum", "Plattform", "Gesamtdistanz_KM", "Kosten_Euro", "Gebot_Euro", "Netto_Profit_Euro", "Status"])
 
-fixed_cost_per_day = (monthly_rent + insurance_tax) / 30
-diesel_cost_per_km = (consumption / 100) * diesel_price
+# 2. إعداد اللغتين واختيار البورصة في القائمة الجانبية
+st.sidebar.markdown("# F EX Freight Hub")
+lang = st.sidebar.radio("🌐 Language / اللغة", ["Deutsch", "العربية"])
 
-st.header("📋 بيانات الطلب الحالي")
-base_offer = st.number_input("العرض الافتتاحي من المنصة (يورو):", value=100.0)
-trip_distance = st.number_input("مسافة الرحلة (كم) من (A إلى B):", value=50.0)
-anfahrt_distance = st.number_input("مسافة الاقتراب للتحميل Anfahrt (كم):", value=15.0)
-
-order_time = st.time_input("وقت استلام/تنفيذ الطلب:", datetime.time(8, 30))
-
-total_distance = trip_distance + anfahrt_distance
-actual_trip_cost = fixed_cost_per_day + (total_distance * diesel_cost_per_km)
-
-is_peak_hour = (6 <= order_time.hour <= 9) or (17 <= order_time.hour <= 21)
-
-if is_peak_hour:
-    peak_multiplier = 1.30
-    time_status = "🔥 وقت ذروة (سعر مرتفع وفرصة قبول أعلى للمزايدة)"
+if lang == "Deutsch":
+    platform_label = "🔌 Wählen Sie die Frachtenbörse:"
+    platforms = ["Zipmend Express", "Clicktrans", "Trans.eu", "Shiply", "uShip"]
+    enter_btn_text = "🚀 In die Plattform einloggen & Befehle öffnen"
+    sidebar_header = "🛠️ Ihre Kosteneinstellungen"
+    monthly_rent_label = "Monatliche Lkw-Miete (€):"
+    insurance_tax_label = "Versicherung & Steuern monatlich (€):"
+    diesel_price_label = "Aktueller Dieselpreis pro Liter (€):"
+    consumption_label = "Lkw-Verbrauch (Liter pro 100 km):"
+    chart_title = "📊 Kumulierter Netto-Profit nach Plattformen (€)"
+    save_success = "Auftrag erfolgreich im Logbook gesichert!"
+    save_btn_txt = "💾 Als GEWONNEN im Logbook speichern"
 else:
-    peak_multiplier = 1.15
-    time_status = "⏱️ وقت عادي (المنافسة مستقرة)"
+    platform_label = "🔌 اختر بورصة أو منصة الشحن:"
+    platforms = ["Zipmend Express", "Clicktrans", "Trans.eu", "Shiply", "uShip"]
+    enter_btn_text = "🚀 دخول إلى أوامر المنصة واستعراض الحاسبة التكتيكية"
+    sidebar_header = "🛠️ إعدادات التكاليف الخاصة بك"
+    monthly_rent_label = "إيجار الشاحنة الشهري (يورو):"
+    insurance_tax_label = "التأمين والضرائب شهرياً (يورو):"
+    diesel_price_label = "سعر لتر الديزل الحالي (يورو):"
+    consumption_label = "استهلاك الشاحنة (لتر لكل 100 كم):"
+    chart_title = "📊 إجمالي أرباحك الصافية الشهرية المدمجة لكل منصة بلونها الخاص (€)"
+    save_success = "تم حفظ وتثبيت الرحلة بنجاح في سجلات F EX الدائمة!"
+    save_btn_txt = "💾 حفظ هذه الرحلة رسمياً كـ (رحلة فائزة) في السجل"
 
-min_acceptable_bid = actual_trip_cost * 1.20
-recommended_bid = base_offer * 1.10
-max_possible_bid = base_offer * peak_multiplier
+platform = st.sidebar.selectbox(platform_label, platforms)
 
-st.subheader("📊 تحليل الوقت والجدوى")
-st.info(f"حالة الوقت الحالي: {time_status}")
-st.warning(f"التكلفة الفعلية لتنفيذ هذه الرحلة عليك (شاملة الإيجار اليومي والديزل): {actual_trip_cost:.2f} يورو")
+# 3. إظهار إعدادات التكاليف مع قفزات التحكم المعدلة (+ و -)
+st.sidebar.write("---")
+st.sidebar.header(sidebar_header)
+monthly_rent = st.sidebar.number_input(monthly_rent_label, value=1650.0, step=1.0)
+insurance_tax = st.sidebar.number_input(insurance_tax_label, value=300.0, step=1.0)
+diesel_price = st.sidebar.number_input(diesel_price_label, value=2.15, step=0.05)
+consumption = st.sidebar.number_input(consumption_label, value=14.0, step=1.0)
 
-st.header("🎯 عروض المزايدة المقترحة")
-col1, col2, col3 = st.columns(3)
+fixed_cost_day = (monthly_rent + insurance_tax) / 30
+diesel_cost_km = (consumption / 100) * diesel_price
 
-with col1:
-    st.metric(label="📉 الحد الأدنى لربحك", value=f"{min_acceptable_bid:.2f} €", delta="لا تنزل عن هذا")
-with col2:
-    st.metric(label="💡 السعر الموصى به", value=f"{recommended_bid:.2f} €", delta="فرصة قبول 85%")
-with col3:
-    st.metric(label="🚀 الحد الأقصى للمزايدة", value=f"{max_possible_bid:.2f} €", delta="فرصة قبول مشروطة بالطوارئ")
+# 4. نظام الهويات اللونية الحقيقية لكل منصة
+color_map = {
+    "Zipmend Express": {"bg": "#FF3B30", "text": "#FFFFFF"}, 
+    "Clicktrans": {"bg": "#FF9500", "text": "#FFFFFF"},      
+    "Trans.eu": {"bg": "#004080", "text": "#FFFFFF"},        
+    "Shiply": {"bg": "#CC9900", "text": "#FFFFFF"},          
+    "uShip": {"bg": "#34AADC", "text": "#FFFFFF"}            
+}
+brand = color_map[platform]
 
-st.subheader("🤖 نصيحة المساعد الذكي:")
-if min_acceptable_bid > (base_offer * 1.25):
-    st.error("🚨 تحذير: هذا الطلب غير مجدي اقتصادياً لشاحنتك لأن مسافة الاقتراب أو تكلفة التشغيل أعلى من العرض المعروض!")
-elif is_peak_hour:
-    st.success("💪 هذا وقت ممتاز للمزايدة بالحد الأقصى! المنصة مستعجلة وغالباً ستوافق على سعرك المرتفع لعدم وجود بدلاء.")
+css_style = f"<style>.stButton>button {{background-color: {brand['bg']} !important; color: {brand['text']} !important; border-radius: 8px; width: 100%; font-weight: bold; padding: 12px;}} .platform-card {{background-color: {brand['bg']}; color: {brand['text']}; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;}}</style>"
+st.markdown(css_style, unsafe_allow_html=True)
+
+if lang == "Deutsch":
+    title_text = "F EX Freight Control Hub"
+    subtitle_text = f"Berechnung kalibriert für: {platform}"
 else:
-    st.success("✅ الطلب جيد. نقترح تقديم 'السعر الموصى به' لضمان الفوز بالطلب أمام المنافسين الآخرين.")
+    title_text = "مركز F EX لرقابة الشحن"
+    subtitle_text = f"الحسابات الحالية مبرمجة ومطابقة لمنصة: {platform}"
+
+html_header = f"<div class='platform-card'><h2 style='margin:0;'>{title_text}</h2><p style='margin:5px 0 0 0; font-weight: bold;'>{subtitle_text}</p></div>"
+st.markdown(html_header, unsafe_allow_html=True)
+
+# 5. بوابات التحكم وذاكرة النظام الآمنة
+if "gate_open" not in st.session_state:
+    st.session_state.gate_open = False
+if "last_p" not in st.session_state:
+    st.session_state.last_p = platform
+
+if st.session_state.last_p != platform:
+    st.session_state.gate_open = False
+    st.session_state.last_p = platform
+
+# 6. إدارة بوابات الدخول للمنصات وعرض الحسابات والأوامر الخفية
+if not st.session_state.gate_open:
+    st.write("")
+    if st.button(enter_btn_text, key="main_gate_btn"):
+        st.session_state.gate_open = True
+        st.rerun()
+else:
+    st.write("---")
+    st.subheader(f"📋 لوحة التحكم والأوامر الخاصة بـ {platform}" if lang == "Deutsch" else f"📋 لوحة التحكم والأوامر الخاصة بـ {platform}")
+    
+    base_offer = st.number_input("Startangebot (€):" if lang == "Deutsch" else "العرض الافتتاحي أو السعر الاسترشادي للمنصة (€):", value=100.0, step=1.0)
+    trip_distance = st.number_input("Transportstrecke (km):" if lang == "Deutsch" else "مسافة النقل الصافية (كم) من A إلى B:", value=25.0, step=1.0)
+    anfahrt_distance = st.number_input("Anfahrtsstrecke zum Ladeort (km):" if lang == "Deutsch" else "مسافة الاقتراب لموقع التحميل (كم) [Anfahrt]:", value=10.0, step=1.0)
+    
+    h_input = st.number_input("Stunde des Auftrags (0-23):" if lang == "Deutsch" else "ساعة استلام/تنفيذ الطلب (0-23):", min_value=0, max_value=23, value=14, step=1)
+    m_input = st.number_input("Minute des Auftrags (0-59):" if lang == "Deutsch" else "دقيقة استلام/تنفيذ الطلب (0-59):", min_value=0, max_value=59, value=30, step=1)
+    
+    total_dist = trip_distance + anfahrt_distance
+    actual_cost = fixed_cost_day + (total_dist * diesel_cost_km)
+    
+    is_peak = (6 <= h_input <= 9) or (17 <= h_input <= 21)
+    mult = 1.35 if is_peak else 1.15
+    
+    if platform == "Zipmend Express":
+        min_bid = actual_cost * 1.20
+        rec_bid = max(base_offer * 1.10, 179.0)
+        max_bid = max(base_offer * mult, 210.0)
+    elif platform in ["Clicktrans", "Shiply", "uShip"]:
+        min_bid = actual_cost * 1.15
+        rec_bid = actual_cost * 1.35
+        max_bid = actual_cost * 1.65
+    else:
+        min_bid = (actual_cost * 1.25) * 1.07
+        rec_bid = base_offer * 1.15
+        max_bid = base_offer * 1.35
+        
+    st.write("---")
+    st.warning(f"📊 Tatsächliche Betriebskosten: {actual_cost:.2f} €" if lang == "Deutsch" else f"📊 التكلفة التشغيلية الفعلية لتنفيذ هذه الرحلة بالكامل: {actual_cost:.2f} يورو")
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("📉 Mindestgebot" if lang == "Deutsch" else "📉 الحد الندنى لعرضك", f"{min_bid:.2f} €")
+    col2.metric("💡 Empfohlen" if lang == "Deutsch" else "💡 السعر الموصى به", f"{rec_bid:.2f} €")
+    col3.metric("🚀 Maximal" if lang == "Deutsch" else "🚀 الحد الأقصى الآمن", f"{max_bid:.2f} €")
+    
+    st.write("---")
+    st.markdown("### 💰 Netto-Profit-Kalkulator" if lang == "Deutsch" else "### 💰 حاسبة الأرباح الصافية الفورية")
+    user_bid = st.number_input("Ihr Gebot (€):" if lang == "Deutsch" else "أدخل السعر الذي تنوي المزايدة به الآن (€):", value=round(rec_bid, 2), step=1.0)
+    net_profit = user_bid - actual_cost
+    
+    if net_profit > 0:
+        st.success(f"Erwarteter Netto-Gewinn: {net_profit:.2f} €" if lang == "Deutsch" else f"صافي الربح المتوقع الذي ستضعه في جيبك: {net_profit:.2f} يورو")
+    else:
+        st.error(f"Netto-Gewinn: {net_profit:.2f} € (Verlust!)" if lang == "Deutsch" else f"صافي الربح المتوقع: {net_profit:.2f} يورو (رحلة خاسرة!)")
+        
+    log_df = load_logbook()
+    auto_row = {"Datum": datetime.date.today().strftime("%Y-%m-%d"), "Plattform": platform, "Gesamtdistanz_KM": total_dist, "Kosten_Euro": round(actual_cost, 2), "Gebot_Euro": round(user_bid, 2), "Netto_Profit_Euro": round(net_profit, 2), "Status": "Auto-Saved"}
+    log_df = log_df[log_df["Status"] != "Auto-Saved"]
+    log_df = pd.concat([log_df, pd.DataFrame([auto_row])], ignore_index=True)
+    log_df.to_csv(LOGBOOK_FILE, index=False)
+        
+    st.write("---")
+    st.markdown("### ⛽ Diesel-Monitor" if lang == "Deutsch" else "### ⛽ مراقب ديزل F EX التكتيكي (Dortmund/NRW)")
+    if 5 <= h_input <= 8:
+        st.error("🚨 WARNUNG: Kraftstoffpreise hoch!" if lang == "Deutsch" else "🚨 تحذير: أسعار الديزل في المحطات الآن في أعلى ذروتها اليومية! تجنب التعبئة الآن.")
+    elif 18 <= h_input <= 22:
+        st.success("✅ OPTIMAL: Jetzt volltanken!" if lang == "Deutsch" else "✅ وقت مثالي: أسعار الديزل في دورتموند الآن في أدنى مستوياتها البنائية اليومية. املأ الخزان فوراً!")
+    else:
+        st.info("⏱️ STABIL: Kraftstoffpreise normal." if lang == "Deutsch" else "⏱️ وضع مستقر: أسعار الديزل طبيعية ومتوازنة حالياً في المحطات الألمانية.")
+
+    st.write("---")
+    if st.button(save_btn_txt):
+        log_df = load_logbook()
+        auto_row["Status"] = "Gewonnen"
+        log_df = pd.concat([log_df, pd.DataFrame([auto_row])], ignore_index=True)
+        log_df.to_csv(LOGBOOK_FILE, index=False)
+        st.success(save_success)
+        st.rerun()
+
+# 7. لوحة التحكم البيانية المدمجة والملونة شهرياً
+st.write("---")
+st.subheader(chart_title)
+history_df = load_logbook()
+
+if not history_df.empty and len(history_df[history_df["Status"] == "Gewonnen"]) > 0:
+    active_history = history_df[history_df["Status"] == "Gewonnen"]
+    chart_data = active_history.groupby("Plattform")["Netto_Profit_Euro"].sum().reset_index()
+    st.bar_chart(data=chart_data, x="Plattform", y="Netto_Profit_Euro", use_container_width=True)
+else:
+    dummy_data = pd.DataFrame({
+        "Plattform": ["Zipmend Express", "Clicktrans", "Trans.eu", "Shiply", "uShip"],
+        "Netto_Profit_Euro": [0.0, 0.0, 0.0, 0.0, 0.0]
+    })
+    st.bar_chart(data=dummy_data, x="Plattform", y="Netto_Profit_Euro", use_container_width=True)
