@@ -32,7 +32,8 @@ if lang == "Deutsch":
     save_success = "Auftrag erfolgreich im Logbook gesichert!"
     save_btn_txt = "💾 Als GEWONNEN im Logbook speichern"
     
-    order_header = "📋 Auftragsdaten eingeben"
+    # نصوص الأوامر الداخلية باللغة الألمانية
+    order_header = f"📋 Auftragsdaten eingeben für {platform if 'platform' in locals() else ''}"
     base_offer_lbl = "Startangebot / Richtpreis der Plattform (€):"
     trip_distance_lbl = "Transportstrecke (km) von A nach B:"
     anfahrt_distance_lbl = "Anfahrtsstrecke zum Ladeort (km) [Anfahrt]:"
@@ -52,7 +53,7 @@ if lang == "Deutsch":
     diesel_normal = "⏱️ STABIL: Die Kraftstoffpreise sind stabil. Tanken zu Normalbedingungen möglich."
     ai_advice_lbl = "🤖 Taktischer F EX Assistenten-Tipp:"
     zipmend_advice = "Zimpend Express schätzt Direktfahrten. Achten Sie darauf, dass der Mindestpreis über 179€ für Hebebühnen-Fahrten liegt."
-    marketplace_advice = "Clicktrans/Shiply/uShip basieren auf offenem Bieten. Nutzen Sie die Strategie, 5€ unter dem niedrigsten Konkurrenten zu bieten, solange Sie über Ihrem Mindestgebot bleiben."
+    marketplace_advice = "Clicktrans/Shiply/uShip basieren on offenem Bieten. Nutzen Sie die Strategie, 5€ unter dem niedrigsten Konkurrenten zu bieten, solange Sie über Ihrem Mindestgebot bleiben."
     transeu_advice = "Trans.eu ist B2B-fokussiert. Da Zahlungsziele oft 30-60 Tage betragen, schlägt F EX automatisch 7% Liquiditäts-Aufschlag auf das Mindestgebot auf."
 else:
     platform_label = "🔌 اختر بورصة أو منصة الشحن:"
@@ -67,7 +68,8 @@ else:
     save_success = "تم حفظ وتثبيت الرحلة بنجاح في سجلات F EX الدائمة!"
     save_btn_txt = "💾 حفظ هذه الرحلة رسمياً كـ (رحلة فائزة) في السجل"
     
-    order_header = "📋 أدخل بيانات الطلب الحالي"
+    # نصوص الأوامر الداخلية باللغة العربية
+    order_header = f"📋 أدخل بيانات الطلب الحالي لـ {platform if 'platform' in locals() else ''}"
     base_offer_lbl = "العرض الافتتاحي أو السعر الاسترشادي للمنصة (€):"
     trip_distance_lbl = "مسافة النقل الصافية (كم) من A إلى B:"
     anfahrt_distance_lbl = "مسافة الاقتراب لموقع التحميل (كم) [Anfahrt]:"
@@ -113,43 +115,14 @@ color_map = {
 }
 brand = color_map[platform]
 
-# الإجبار الشامل للخطوط اللاتينية لكسر الأرقام الهندية ومنعها نهائياً في حقول الإدخال والمقاييس
-css_style = f"""
-<style>
-* {{
-    font-family: 'Courier New', Courier, monospace !important;
-    font-variant-numeric: lnum-spacing lining-nums !important;
-    font-feature-settings: 'lnum' 1 !important;
-}}
-input {{
-    font-family: 'Courier New', Courier, monospace !important;
-}}
-.stButton>button {{
-    background-color: {brand['bg']} !important;
-    color: {brand['text']} !important;
-    border-radius: 8px;
-    width: 100%;
-    font-weight: bold;
-    padding: 12px;
-    font-family: sans-serif !important;
-}}
-.platform-card {{
-    background-color: {brand['bg']};
-    color: {brand['text']};
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    text-align: center;
-    font-family: sans-serif !important;
-}}
-</style>
-"""
+# (تعديل الأمان وحماية الأرقام): حقن كود CSS يمنع تحويل الأرقام للشكل الهندي ويفرض الخط القياسي العالمي
+css_style = f"<style> * {{ font-variant-numeric: lnum-spacing lining-nums !important; font-feature-settings: 'lnum' 1 !important; }} .stButton>button {{background-color: {brand['bg']} !important; color: {brand['text']} !important; border-radius: 8px; width: 100%; font-weight: bold; padding: 12px;}} .platform-card {{background-color: {brand['bg']}; color: {brand['text']}; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;}}</style>"
 st.markdown(css_style, unsafe_allow_html=True)
 
 if lang == "Deutsch":
     html_header = f"<div class='platform-card'><h2 style='margin:0;'>F EX Freight Control Hub</h2><p style='margin:5px 0 0 0; font-weight: bold;'>Berechnung kalibriert für: {platform}</p></div>"
 else:
-    html_header = f"<div class='platform-card'><h2 style='margin:0; font-family:sans-serif !important;'>مركز F EX لرقابة الشحن</h2><p style='margin:5px 0 0 0; font-weight: bold; font-family:sans-serif !important;'>الحسابات الحالية مبرمجة ومطابقة لمنصة: {platform}</p></div>"
+    html_header = f"<div class='platform-card'><h2 style='margin:0;'>مركز F EX لرقابة الشحن</h2><p style='margin:5px 0 0 0; font-weight: bold;'>الحسابات الحالية مبرمجة ومطابقة لمنصة: {platform}</p></div>"
 st.markdown(html_header, unsafe_allow_html=True)
 
 # 5. بوابات التحكم وذاكرة النظام الآمنة
@@ -162,7 +135,7 @@ if st.session_state.last_p != platform:
     st.session_state.gate_open = False
     st.session_state.last_p = platform
 
-# 6. إدارة بوابات الدخول للمنصات وعرض الحسابات والأوامر الخفية
+# 6. إدارة بوابات الدخول للمنصات وعرض الحسابات والأوامر الخفية باللغة الصحيحة الثابتة للأرقام
 if not st.session_state.gate_open:
     st.write("")
     if st.button(enter_btn_text, key="main_gate_btn"):
@@ -202,3 +175,5 @@ else:
     st.warning(actual_cost_lbl.format(actual_cost))
     
     col1, col2, col3 = st.columns(3)
+    col1.metric(min_bid_lbl, f"{min_bid:.2f} €")
+    col2.metric(rec_bid_lbl, f"{rec_bid:.2f} €")
